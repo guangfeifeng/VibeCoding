@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今日穿搭 · 天气智选</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    body, html { overflow: hidden; height: 100%; }
+    .outfit-image { transition: opacity 0.5s ease; }
+    /* 毕加索风格配色：赭石、陶土、深蓝、暖米 */
+    .picasso-bg { background: linear-gradient(135deg, #EDE0D4 0%, #E8D5B7 40%, #D4C4A8 100%); }
+    .picasso-card { background: rgba(255,248,240,0.85); border: 1px solid rgba(198,93,59,0.2); }
+    .picasso-accent { color: #2C4A6F; }
+    .picasso-terracotta { color: #C65D3B; }
+    .picasso-badge { background-color: #C65D3B; color: #F5F0E8; }
+    .picasso-ochre { color: #B8860B; }
+    .picasso-tab-active { background: #2C4A6F; color: #F5F0E8; }
+    .picasso-tab { color: #2C4A6F; border: 1px solid rgba(44,74,111,0.4); }
+  </style>
+</head>
+<body class="h-screen picasso-bg antialiased overflow-hidden">
+  <div class="h-screen flex flex-col lg:flex-row overflow-hidden">
+    <!-- 左侧：天气与穿搭推荐 -->
+    <div class="lg:w-1/2 flex flex-col justify-center px-6 py-8 lg:px-16 lg:py-12 flex-shrink-0">
+      <h1 class="text-2xl lg:text-3xl font-semibold picasso-accent tracking-tight mb-1">今日穿搭</h1>
+      <p class="text-sm picasso-ochre mb-6">根据实时天气，为你精选适合的搭配</p>
+
+      <!-- 天气信息区 -->
+      <div id="weather-section" class="mb-6">
+        <div id="loading" class="space-y-3">
+          <div class="h-8 w-40 bg-amber-200/50 rounded animate-pulse"></div>
+          <div class="h-4 w-28 bg-amber-100/50 rounded animate-pulse"></div>
+        </div>
+        <div id="weather-content" class="hidden picasso-card rounded-xl p-4 shadow-md">
+          <div class="flex items-center gap-3 mb-2">
+            <span id="weather-icon" class="text-3xl">☀️</span>
+            <div>
+              <span id="location-name" class="text-base font-medium picasso-accent block"></span>
+              <span id="weather-desc" class="text-xs picasso-ochre"></span>
+            </div>
+          </div>
+          <div class="flex items-baseline gap-1 mb-3">
+            <span id="temperature" class="text-5xl font-light picasso-accent tracking-tight"></span>
+            <span class="text-xl picasso-ochre">°C</span>
+          </div>
+          <!-- 未来三天预报 -->
+          <div id="forecast-3day" class="flex gap-4 text-xs picasso-accent/90">
+            <div id="day1" class="flex flex-col items-center"><span class="opacity-70">今天</span><span class="font-medium" id="day1-temp">--</span></div>
+            <div id="day2" class="flex flex-col items-center"><span class="opacity-70">明天</span><span class="font-medium" id="day2-temp">--</span></div>
+            <div id="day3" class="flex flex-col items-center"><span class="opacity-70">后天</span><span class="font-medium" id="day3-temp">--</span></div>
+          </div>
+        </div>
+        <div id="error-msg" class="hidden text-amber-700 text-xs mt-2"></div>
+      </div>
+
+      <!-- 穿搭推荐区 -->
+      <div id="outfit-section" class="hidden">
+        <h2 class="text-xs font-medium picasso-ochre uppercase tracking-wider mb-3">推荐搭配</h2>
+        <ul id="outfit-list" class="space-y-2 text-sm picasso-accent"></ul>
+      </div>
+    </div>
+
+    <!-- 右侧：三套穿搭切换 -->
+    <div class="lg:w-1/2 h-1/2 lg:h-full flex flex-col items-center justify-center p-4 lg:p-8 flex-shrink-0">
+      <!-- 穿搭风格切换标签 -->
+      <div class="flex gap-2 mb-4">
+        <button id="tab-summer" class="picasso-tab picasso-tab-active px-4 py-2 rounded-lg text-sm font-medium transition-all">夏装</button>
+        <button id="tab-hoodie" class="picasso-tab px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-amber-100/50">卫衣</button>
+        <button id="tab-coat" class="picasso-tab px-4 py-2 rounded-lg text-sm font-medium transition-all hover:bg-amber-100/50">大衣</button>
+      </div>
+      <div class="relative w-full max-w-md aspect-[4/5] rounded-2xl overflow-hidden shadow-xl ring-2 ring-amber-900/10 bg-amber-100/30 flex-1 max-h-[60vh]">
+        <img id="outfit-image" class="outfit-image absolute inset-0 w-full h-full object-cover object-top" src="" alt="穿搭预览" />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const OUTFIT_CONFIG = {
+      summer: {
+        name: '夏装',
+        items: ['透气棉质短袖 T 恤', '休闲九分裤或短裤', '轻便小白鞋'],
+        image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=1200&q=80',
+      },
+      hoodie: {
+        name: '卫衣',
+        items: ['舒适连帽卫衣', '休闲直筒长裤', '简约板鞋'],
+        image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=1200&q=80',
+      },
+      coat: {
+        name: '大衣',
+        items: ['羊毛混纺大衣', '高领针织衫', '保暖长裤与皮靴'],
+        image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=1200&q=80',
+      },
+    };
+
+    const WEATHER_ICONS = {
+      0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 45: '🌫️', 48: '🌫️',
+      51: '🌧️', 61: '🌧️', 80: '🌦️', 95: '⛈️',
+    };
+
+    let currentTab = 'summer';
+
+    function setActiveTab(tab) {
+      currentTab = tab;
+      ['summer', 'hoodie', 'coat'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.classList.remove('picasso-tab');
+          btn.classList.add('picasso-tab-active');
+        } else {
+          btn.classList.remove('picasso-tab-active');
+          btn.classList.add('picasso-tab');
+        }
+      });
+      const outfit = OUTFIT_CONFIG[tab];
+      document.getElementById('outfit-list').innerHTML = outfit.items.map((item, i) => `
+        <li class="flex items-center gap-2">
+          <span class="w-5 h-5 rounded picasso-badge text-xs flex items-center justify-center font-medium">${i + 1}</span>
+          <span>${item}</span>
+        </li>
+      `).join('');
+      document.getElementById('outfit-image').src = outfit.image;
+      document.getElementById('outfit-image').alt = `${outfit.name}穿搭预览`;
+    }
+
+    function renderOutfit(outfit) {
+      setActiveTab(outfit === OUTFIT_CONFIG.summer ? 'summer' : outfit === OUTFIT_CONFIG.hoodie ? 'hoodie' : 'coat');
+      document.getElementById('outfit-section').classList.remove('hidden');
+    }
+
+    function renderWeather(data, location) {
+      const temp = Math.round(data.current.temperature_2m);
+      const weatherCode = data.current.weather_code;
+      const weatherDesc = { 0: '晴朗', 1: '大部分晴朗', 2: '局部多云', 3: '多云', 45: '有雾', 48: '雾凇', 51: '毛毛雨', 61: '小雨', 80: '阵雨', 95: '雷暴' };
+      const desc = weatherDesc[weatherCode] || '天气适宜';
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('weather-content').classList.remove('hidden');
+      document.getElementById('weather-icon').textContent = WEATHER_ICONS[weatherCode] || '🌡️';
+      document.getElementById('location-name').textContent = location || '当前位置';
+      document.getElementById('weather-desc').textContent = desc;
+      document.getElementById('temperature').textContent = temp;
+
+      // 三天预报
+      if (data.daily) {
+        const times = data.daily.time || [];
+        const maxT = data.daily.temperature_2m_max || [];
+        const minT = data.daily.temperature_2m_min || [];
+        for (let i = 0; i < 3 && i < times.length; i++) {
+          const el = document.getElementById(`day${i + 1}-temp`);
+          if (el) el.textContent = `${Math.round(minT[i] || 0)}° ~ ${Math.round(maxT[i] || 0)}°`;
+        }
+      }
+
+      const outfit = temp >= 26 ? OUTFIT_CONFIG.summer : temp >= 15 ? OUTFIT_CONFIG.hoodie : OUTFIT_CONFIG.coat;
+      renderOutfit(outfit);
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error-msg').textContent = msg;
+      document.getElementById('error-msg').classList.remove('hidden');
+      renderOutfit(OUTFIT_CONFIG.hoodie);
+    }
+
+    async function fetchWeather(lat, lon) {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=3`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('天气数据获取失败');
+      return res.json();
+    }
+
+    async function reverseGeocode(lat, lon) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=zh`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const data = await res.json();
+        const addr = data.address || {};
+        const country = addr.country || '';
+        const city = addr.city || addr.town || addr.county || addr.state || addr.village || '';
+        if (country && city) return `${country} · ${city}`;
+        if (country || city) return country || city;
+        return '当前位置';
+      } catch { return '当前位置'; }
+    }
+
+    function init() {
+      document.getElementById('tab-summer').onclick = () => setActiveTab('summer');
+      document.getElementById('tab-hoodie').onclick = () => setActiveTab('hoodie');
+      document.getElementById('tab-coat').onclick = () => setActiveTab('coat');
+
+      if (!navigator.geolocation) {
+        showError('你的浏览器不支持定位，已展示默认穿搭。');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          try {
+            const [weatherData, location] = await Promise.all([
+              fetchWeather(latitude, longitude),
+              reverseGeocode(latitude, longitude),
+            ]);
+            renderWeather(weatherData, location);
+          } catch (e) {
+            showError('获取天气失败，已展示默认穿搭。');
+          }
+        },
+        () => showError('未获取到定位权限，已展示默认穿搭。')
+      );
+    }
+
+    init();
+  </script>
+</body>
+</html>
